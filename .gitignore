@@ -1,0 +1,28 @@
+# --- build outputs ---
+target/
+build/
+dist/
+out/
+
+# --- model weights & large artifacts (never commit) ---
+models/
+*.gguf
+*.onnx
+*.safetensors
+
+# --- env & secrets ---
+.env
+.env.*
+!.env.example
+
+# --- agentcage runtime artifacts (audit logs must never be committed) ---
+.agentcage/
+
+# --- caches / editor / OS ---
+.DS_Store
+.idea/
+.vscode/
+.cache/
+coverage/
+*.log
+tmp/
