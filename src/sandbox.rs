@@ -93,6 +93,24 @@ mod imp {
         Ruleset, RulesetAttr, RulesetCreatedAttr, RulesetStatus, ABI,
     };
 
+    /// System roots granted read+execute so allowed commands and their
+    /// shared libraries can be loaded under enforcement. Read-only, so the
+    /// policy's write surface is never widened; `/etc` broadly stays out so
+    /// scoped file isolation still holds, while the specific linker cache
+    /// files are included to keep dynamic loading robust.
+    const SYSTEM_READ_ROOTS: &[&str] = &[
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/lib",
+        "/lib32",
+        "/lib64",
+        "/libx32",
+        "/etc/ld.so.cache",
+        "/etc/ld.so.conf",
+        "/etc/ld.so.conf.d",
+    ];
+
     /// Asks the kernel for its Landlock ABI version without creating a
     /// ruleset. Cheap and side-effect free.
     pub fn probe() -> Support {
@@ -149,6 +167,27 @@ mod imp {
         let mut created = ruleset.create().map_err(|e| e.to_string())?;
 
         let mut skipped_paths = Vec::new();
+
+        // Baseline read-only roots that must stay reachable for *any*
+        // program to load and run under enforcement: the system binaries,
+        // shared libraries and the dynamic linker's cache. Landlock has no
+        // implicit allowances, so without these the exec of the allowed
+        // command itself (and its libc) fails with EACCES and `run` can
+        // never execute anything. They are added with read access only
+        // (which includes execute in Landlock), so they never widen the
+        // policy's *write* surface, and `/etc` as a whole stays blocked so
+        // policy-scoped file isolation is preserved.
+        for entry in SYSTEM_READ_ROOTS {
+            let path = Path::new(entry);
+            let fd = match PathFd::new(path) {
+                Ok(fd) => fd,
+                // Missing on this machine (e.g. no /lib64): nothing to add.
+                Err(_) => continue,
+            };
+            created = created
+                .add_rule(PathBeneath::new(fd, AccessFs::from_read(abi)))
+                .map_err(|e| e.to_string())?;
+        }
 
         let (read_paths, missing_read) = resolve_paths(&policy.filesystem.read, root);
         skipped_paths.extend(missing_read);
