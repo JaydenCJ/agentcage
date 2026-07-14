@@ -455,7 +455,7 @@ fn cmd_run(policy_override: Option<PathBuf>, args: Vec<String>) -> Result<i32, S
                         if enforcement.net_requested { " + network" } else { "" }
                     ),
                     EnforcementLevel::Partial => eprintln!(
-                        "agentcage: sandbox partially active: landlock (kernel ABI {}; some rules unsupported, network filtering needs ABI >= 4)",
+                        "agentcage: sandbox active: landlock (partial; kernel ABI {}; some rules unsupported, network filtering needs ABI >= 4)",
                         enforcement.abi
                     ),
                     EnforcementLevel::None => eprintln!(
